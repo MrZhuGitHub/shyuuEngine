@@ -49,7 +49,7 @@ RenderPassNode::~RenderPassNode() {
 
 }
 
-std::future<VkCommandBuffer> RenderPassNode::RecordCommand() {
+std::vector<std::future<VkCommandBuffer>> RenderPassNode::RecordCommand() {
     mSecondaryCommandBuffer = mRenderPass->recordCommand();
     return mSecondaryCommandBuffer;
 }
@@ -153,7 +153,7 @@ void RenderPassManager::prepare() {
     std::vector<std::future<VkCommandBuffer>> commandBuffers;
     for (const auto& node : mTopologicalSortKahn) {
         if (auto renderPassNode = std::dynamic_pointer_cast<RenderPassNode>(node)) {
-            std::future<VkCommandBuffer> commandBuffer = renderPassNode->RecordCommand();
+            std::vector<std::future<VkCommandBuffer>> commandBuffer = renderPassNode->RecordCommand();
             commandBuffers.push_back(commandBuffer);
         }
 

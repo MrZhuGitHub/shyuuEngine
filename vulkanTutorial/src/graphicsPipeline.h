@@ -43,10 +43,14 @@ namespace vulkanTutorial
             void setScissor(VkCommandBuffer commandBuffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 
             virtual void draw(VkCommandBuffer commandBuffer, std::shared_ptr<Camera> camera, std::vector<std::shared_ptr<GeometryParser>> geometryParsers);
+            virtual void input(std::shared_ptr<FrameBuffer> frameBuffer) = 0;
 
         private:
             VkPipeline mGraphicsPipeline;
+            VkDescriptorSet mInputDescriptorSet;
     };
+
+    class 
 }
 
 #endif

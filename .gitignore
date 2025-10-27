@@ -5,3 +5,5 @@
 /.vscode
 
 /vulkanTutorial/x64/Debug
+
+/vulkanTutorial/third-party/VulkanMemoryAllocator/out

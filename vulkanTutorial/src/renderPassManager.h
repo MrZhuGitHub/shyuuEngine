@@ -44,12 +44,12 @@ namespace vulkanTutorial {
 
             std::shared_ptr<RenderPass> getRenderPass();
 
-            std::future<VkCommandBuffer> RecordCommand();
+            std::vector<std::future<VkCommandBuffer>> RecordCommand();
             void ExecuteCommand(VkCommandBuffer PrimaryCommandBuffer);
 
         private:
             std::shared_ptr<RenderPass> mRenderPass;
-            std::future<VkCommandBuffer> mSecondaryCommandBuffer;
+            std::vector<std::future<VkCommandBuffer>> mSecondaryCommandBuffer;
     };
 
     class ResourceNode : public DependencyNode {
