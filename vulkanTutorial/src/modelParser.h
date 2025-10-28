@@ -7,13 +7,14 @@
 #include <memory>
 #include <tuple>
 
-#include "modelLoader.h"
 #include "texture.h"
 
 #include "glm/glm.hpp"
 
 namespace vulkanTutorial
 {
+	class ModelLoader;
+
 	struct GeometryBuffer {
 
 		std::tuple<uint32_t, uint32_t, const VkBuffer*, const VkDeviceSize*> cmdBindVertexBuffers;
@@ -54,7 +55,7 @@ namespace vulkanTutorial
 			return mGeometryBuffers;
 		}
 
-	private:
+	protected:
 		std::vector<GeometryBuffer> mGeometryBuffers;
 	};
 

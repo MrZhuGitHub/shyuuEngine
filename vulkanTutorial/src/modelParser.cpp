@@ -3,6 +3,8 @@
 
 #include "modelParser.h"
 
+#include "modelLoader.h"
+
 namespace vulkanTutorial {
 
 	GeometryParser::GeometryParser() {
@@ -24,7 +26,17 @@ namespace vulkanTutorial {
 	}
 
 	bool ModelParser::Parse() {
+		std::vector<Primitive>& primitives = mModelLoader->get();
+		for (auto& primitive : primitives) {
+			GeometryBuffer geometryBuffer;
+			//parse index
+			
+			//parse attribute
 
+			//parse material
+
+			mGeometryBuffers.push_back(geometryBuffer);
+		}
 	}
 
 	void ModelParser::AddInstance(const glm::mat4& modelMatrix) {
