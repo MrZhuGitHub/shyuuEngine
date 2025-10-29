@@ -21,16 +21,41 @@ namespace vulkanTutorial {
 		}
 	};
 
+	struct SwapChainSupportDetails {
+		VkSurfaceCapabilitiesKHR capabilities;
+		std::vector<VkSurfaceFormatKHR> formats;
+		std::vector<VkPresentModeKHR> presentModes;
+	};
+
 	class VulkanInstance {
 		public:
 			VulkanInstance(bool enbaleValidationLayers, std::string appName);
 			~VulkanInstance();
+
+			bool init();
+
+			VkDevice LogicalDevice() {
+				return mLogicalDevice;
+			}
+
+			VkQueue GraphicsQueue() {
+				return mGraphicsQueue;
+			}
+
+			VkQueue PresentQueue() {
+				return mPresentQueue;
+			}
+
+			VkCommandPool createCommandPool();
+			VkCommandBuffer beginSingleTimeCommands();
+			void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+
+		private:
 			bool createInstance();
 			bool setupDebugMessenger();
 			bool pickPhysicalDevice();
 			bool createLogicalDevice();
 
-		private:
 			bool checkValidationLayerSupport();
 			std::vector<const char*> getRequiredExtensions();
 			void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
@@ -40,18 +65,24 @@ namespace vulkanTutorial {
 			bool isDeviceSuitable(VkPhysicalDevice device);
 			QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 			bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-
+			SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
 
 		private:
 			VkInstance mVulkanInstance;
-			VkPhysicalDevice mPhysicalDevice;
-			VkDevice mLogicalDevice;
 			VkDebugUtilsMessengerEXT mDebugMessenger;
+
+			VkPhysicalDevice mPhysicalDevice;
+			QueueFamilyIndices mQueueFamilyIndices;
+
+			VkDevice mLogicalDevice;
 			VkQueue mGraphicsQueue;
 			VkQueue mPresentQueue;
 
 			bool mEnbaleValidationLayers;
 			std::string mApplicationName;
+
+			std::vector<VkCommandPool> mCommandPools;
+			VkCommandPool mMainCommandPool;
 	};
 }
 

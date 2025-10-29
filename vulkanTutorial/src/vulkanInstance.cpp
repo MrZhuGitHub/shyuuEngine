@@ -1,6 +1,8 @@
 #include "vulkanInstance.h"
 
 namespace vulkanTutorial {
+    VkCommandPool VulkanInstance::kMainCommandPool;
+
     const std::vector<const char*> validationLayers = {
         "VK_LAYER_KHRONOS_validation"
     };
@@ -22,6 +24,12 @@ namespace vulkanTutorial {
 	}
 
 	VulkanInstance::~VulkanInstance() {
+        for (auto& commandPool : mCommandPools) {
+            vkDestroyCommandPool(mLogicalDevice, commandPool, nullptr);
+        }
+
+        vkDestroyDevice(mLogicalDevice, nullptr);
+
         if (mEnbaleValidationLayers) {
             DestroyDebugUtilsMessengerEXT(mVulkanInstance, mDebugMessenger, nullptr);
         }
@@ -86,6 +94,7 @@ namespace vulkanTutorial {
 	bool VulkanInstance::createInstance() {
         if (mEnbaleValidationLayers && !checkValidationLayerSupport()) {
             throw std::runtime_error("validation layers requested, but not available!");
+            return false;
         }
 
         VkApplicationInfo appInfo{};
@@ -120,7 +129,9 @@ namespace vulkanTutorial {
 
         if (vkCreateInstance(&createInfo, nullptr, &mVulkanInstance) != VK_SUCCESS) {
             throw std::runtime_error("failed to create instance!");
+            return false;
         }
+        return true;
 	}
 
     VkResult VulkanInstance::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
@@ -134,14 +145,17 @@ namespace vulkanTutorial {
     }
 
 	bool VulkanInstance::setupDebugMessenger() {
-        if (!mEnbaleValidationLayers) return;
+        if (!mEnbaleValidationLayers) return true;
 
         VkDebugUtilsMessengerCreateInfoEXT createInfo;
         populateDebugMessengerCreateInfo(createInfo);
 
         if (CreateDebugUtilsMessengerEXT(mVulkanInstance, &createInfo, nullptr, &mDebugMessenger) != VK_SUCCESS) {
             throw std::runtime_error("failed to set up debug messenger!");
+            return false;
         }
+
+        return true;
 	}
 
     bool VulkanInstance::isDeviceSuitable(VkPhysicalDevice device) {
@@ -209,6 +223,30 @@ namespace vulkanTutorial {
         return requiredExtensions.empty();
     }
 
+    SwapChainSupportDetails VulkanInstance::querySwapChainSupport(VkPhysicalDevice device) {
+        SwapChainSupportDetails details;
+
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+
+        uint32_t formatCount;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+
+        if (formatCount != 0) {
+            details.formats.resize(formatCount);
+            vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
+        }
+
+        uint32_t presentModeCount;
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+
+        if (presentModeCount != 0) {
+            details.presentModes.resize(presentModeCount);
+            vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
+        }
+
+        return details;
+    }
+
 	bool VulkanInstance::pickPhysicalDevice() {
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(mVulkanInstance, &deviceCount, nullptr);
@@ -229,10 +267,100 @@ namespace vulkanTutorial {
 
         if (mPhysicalDevice == VK_NULL_HANDLE) {
             throw std::runtime_error("failed to find a suitable GPU!");
+            return false;
         }
+
+        mMainCommandPool = createCommandPool();
+
+        return true;
 	}
 
 	bool VulkanInstance::createLogicalDevice() {
+        mQueueFamilyIndices = findQueueFamilies(mPhysicalDevice);
 
+        std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+        std::set<uint32_t> uniqueQueueFamilies = { mQueueFamilyIndices.graphicsFamily.value(), mQueueFamilyIndices.presentFamily.value()};
+
+        float queuePriority = 1.0f;
+        for (uint32_t queueFamily : uniqueQueueFamilies) {
+            VkDeviceQueueCreateInfo queueCreateInfo{};
+            queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queueCreateInfo.queueFamilyIndex = queueFamily;
+            queueCreateInfo.queueCount = 1;
+            queueCreateInfo.pQueuePriorities = &queuePriority;
+            queueCreateInfos.push_back(queueCreateInfo);
+        }
+
+        VkPhysicalDeviceFeatures deviceFeatures{};
+        deviceFeatures.samplerAnisotropy = VK_TRUE;
+
+        VkDeviceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+
+        createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+        createInfo.pQueueCreateInfos = queueCreateInfos.data();
+
+        createInfo.pEnabledFeatures = &deviceFeatures;
+
+        createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+        createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+
+        if (vkCreateDevice(mPhysicalDevice, &createInfo, nullptr, &mLogicalDevice) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create logical device!");
+            return false;
+        }
+
+        vkGetDeviceQueue(mLogicalDevice, mQueueFamilyIndices.graphicsFamily.value(), 0, &mGraphicsQueue);
+        vkGetDeviceQueue(mLogicalDevice, mQueueFamilyIndices.presentFamily.value(), 0, &mPresentQueue);
+
+        return true;      
 	}
+
+    VkCommandPool VulkanInstance::createCommandPool() {
+        VkCommandPool commandPool;
+
+        VkCommandPoolCreateInfo poolInfo{};
+        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        poolInfo.queueFamilyIndex = mQueueFamilyIndices.graphicsFamily.value();
+
+        if (vkCreateCommandPool(mLogicalDevice, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create graphics command pool!");
+        } 
+        mCommandPools.push_back(commandPool);
+        return commandPool;
+    }
+
+    VkCommandBuffer VulkanInstance::beginSingleTimeCommands() {
+        VkCommandBufferAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandPool = mMainCommandPool;
+        allocInfo.commandBufferCount = 1;
+
+        VkCommandBuffer commandBuffer;
+        vkAllocateCommandBuffers(mLogicalDevice, &allocInfo, &commandBuffer);
+
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+        vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+        return commandBuffer;
+    }
+
+    void VulkanInstance::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
+        vkEndCommandBuffer(commandBuffer);
+
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+
+        vkQueueSubmit(mGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(mGraphicsQueue);
+
+        vkFreeCommandBuffers(mLogicalDevice, mMainCommandPool, 1, &commandBuffer);
+    }
 }
